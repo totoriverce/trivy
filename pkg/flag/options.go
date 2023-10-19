@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
@@ -118,21 +119,65 @@ type Options struct {
 
 // Align takes consistency of options
 func (o *Options) Align() {
-	if o.Format == types.FormatSPDX || o.Format == types.FormatSPDXJSON {
-		log.Logger.Info(`"--format spdx" and "--format spdx-json" disable security scanning`)
-		o.Scanners = nil
+	// "--scanners pkg" option is unavailable with "--format table".
+	// If user specifies "--scanners pkg" with "--format table", we should warn it.
+	if o.Format == types.FormatTable && o.Scanners.Enabled(types.PkgScanner) {
+		log.Logger.Warn(`"--scanners pkg" cannot be used with "--format table". Try "--format json" or other formats.`)
+		o.Scanners = o.Scanners.Disable(types.PkgScanner)
+		return
 	}
 
-	// Vulnerability scanning is disabled by default for CycloneDX.
-	if o.Format == types.FormatCycloneDX && !viper.IsSet(ScannersFlag.ConfigName) && len(o.K8sOptions.Components) == 0 { // remove K8sOptions.Components validation check when vuln scan is supported for k8s report with cycloneDX
-		log.Logger.Info(`"--format cyclonedx" disables security scanning. Specify "--scanners vuln" explicitly if you want to include vulnerabilities in the CycloneDX report.`)
-		o.Scanners = nil
+	// enable pkg scanner for --dependency-tree
+	if o.DependencyTree && !o.Scanners.Enabled(types.PkgScanner) {
+		log.Logger.Debugf(`"--dependency-tree" enables "--scanners pkg".`)
+		o.Scanners = append(o.Scanners, types.PkgScanner)
+		return
 	}
 
-	if o.Format == types.FormatCycloneDX && len(o.K8sOptions.Components) > 0 {
-		log.Logger.Info(`"k8s with --format cyclonedx" disable security scanning`)
-		o.Scanners = nil
+	// We need this flag to insert dependency locations into Sarif('Package' struct contains 'Locations')
+	if o.Format == types.FormatSarif && !o.Scanners.Enabled(types.PkgScanner) {
+		log.Logger.Debugf(`"--format sarif" automatically enables "--scanners pkg" to get locations.`)
+		o.Scanners = append(o.Scanners, types.PkgScanner)
+		return
 	}
+
+	if slices.Contains(types.SupportedSBOMFormats, o.Format) {
+		// enable pkg scanner if needed
+		if !o.Scanners.Enabled(types.PkgScanner) {
+			log.Logger.Debugf(`"--format %s" automatically enables "--scanners pkg".`, o.Format)
+			o.Scanners = append(o.Scanners, types.PkgScanner)
+		}
+		// disable vulnerability scanner if needed
+		if o.Scanners.Enabled(types.VulnerabilityScanner) {
+			if o.vulnScannerShouldBeDisable() {
+				o.Scanners = o.Scanners.Disable(types.VulnerabilityScanner)
+			}
+		}
+		if o.Scanners.AnyEnabled(types.LicenseScanner, types.MisconfigScanner, types.SecretScanner) {
+			log.Logger.Infof(`"--format %s" automatically disables "--scanners license,config,secret".`, o.Format)
+			o.Scanners = o.Scanners.Disable(types.LicenseScanner, types.MisconfigScanner, types.SecretScanner)
+		}
+	}
+}
+
+func (o *Options) vulnScannerShouldBeDisable() bool {
+	if o.Format == types.FormatCycloneDX {
+		// image, repo, etc... targets
+		if len(o.K8sOptions.Components) == 0 {
+			if !viper.IsSet(ScannersFlag.ConfigName) {
+				log.Logger.Info(`"--format cyclonedx" automatically disables security scanning. Specify "--scanners vuln" explicitly if you want to include vulnerabilities in the CycloneDX report.`)
+				return true
+			}
+			// user has enabled vuln scanner
+			return false
+		}
+		// k8s target
+		log.Logger.Info(`"k8s with --format cyclonedx" automatically disables security scanning.`)
+		return true
+	}
+
+	log.Logger.Infof(`"--format %s" automatically disables security scanning.`, o.Format)
+	return true
 }
 
 // RegistryOpts returns options for OCI registries

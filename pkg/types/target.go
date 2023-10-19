@@ -43,6 +43,9 @@ const (
 
 	// LicenseScanner is the scanner of licenses
 	LicenseScanner = Scanner("license")
+
+	// PkgScanner includes all found packages on report
+	PkgScanner = Scanner("pkg")
 )
 
 var (
@@ -57,6 +60,7 @@ var (
 		RBACScanner,
 		SecretScanner,
 		LicenseScanner,
+		PkgScanner,
 		NoneScanner,
 	}
 
@@ -66,6 +70,7 @@ var (
 	AllImageConfigScanners = Scanners{
 		MisconfigScanner,
 		SecretScanner,
+		PkgScanner,
 		NoneScanner,
 	}
 )
@@ -82,4 +87,15 @@ func (scanners Scanners) AnyEnabled(ss ...Scanner) bool {
 		}
 	}
 	return false
+}
+
+// Disable returns scanners without scanners is included.
+func (scanners Scanners) Disable(ss ...Scanner) Scanners {
+	var enabledScanners Scanners
+	for _, scanner := range scanners {
+		if !slices.Contains(ss, scanner) {
+			enabledScanners = append(enabledScanners, scanner)
+		}
+	}
+	return enabledScanners
 }
