@@ -45,7 +45,12 @@ func TestArtifact_Inspect(t *testing.T) {
 										Version:    "1.2.3-r0",
 										SrcName:    "musl",
 										SrcVersion: "1.2.3-r0",
-										Licenses:   []string{"MIT"},
+										Licenses: types.Licenses{
+											{
+												Type:  types.LicenseTypeName,
+												Value: "MIT",
+											},
+										},
 										Layer: types.Layer{
 											DiffID: "sha256:dd565ff850e7003356e2b252758f9bdc1ff2803f61e995e24c7844f6297f8fc3",
 										},
@@ -158,9 +163,14 @@ func TestArtifact_Inspect(t *testing.T) {
 								FilePath: "",
 								Libraries: types.Packages{
 									{
-										Name:     "bootstrap",
-										Version:  "5.0.2",
-										Licenses: []string{"MIT"},
+										Name:    "bootstrap",
+										Version: "5.0.2",
+										Licenses: types.Licenses{
+											{
+												Type:  types.LicenseTypeName,
+												Value: "MIT",
+											},
+										},
 										Layer: types.Layer{
 											DiffID: "sha256:3c79e832b1b4891a1cb4a326ef8524e0bd14a2537150ac0e203a5677176c1ca1",
 										},
@@ -210,7 +220,12 @@ func TestArtifact_Inspect(t *testing.T) {
 										Version:    "1.2.3-r0",
 										SrcName:    "musl",
 										SrcVersion: "1.2.3-r0",
-										Licenses:   []string{"MIT"},
+										Licenses: types.Licenses{
+											{
+												Type:  types.LicenseTypeName,
+												Value: "MIT",
+											},
+										},
 										Identifier: types.PkgIdentifier{
 											PURL: &packageurl.PackageURL{
 												Type:      packageurl.TypeApk,
@@ -333,7 +348,12 @@ func TestArtifact_Inspect(t *testing.T) {
 											},
 											BOMRef: "pkg:npm/bootstrap@5.0.2?file_path=app%2Fapp%2Fpackage.json",
 										},
-										Licenses: []string{"MIT"},
+										Licenses: types.Licenses{
+											{
+												Type:  types.LicenseTypeName,
+												Value: "MIT",
+											},
+										},
 										Layer: types.Layer{
 											DiffID: "sha256:3c79e832b1b4891a1cb4a326ef8524e0bd14a2537150ac0e203a5677176c1ca1",
 										},

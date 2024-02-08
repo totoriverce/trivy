@@ -64,9 +64,14 @@ func TestArtifact_Inspect(t *testing.T) {
 										Version:    "1.1.24-r2",
 										SrcName:    "musl",
 										SrcVersion: "1.1.24-r2",
-										Licenses:   []string{"MIT"},
-										Arch:       "x86_64",
-										Digest:     "sha1:cb2316a189ebee5282c4a9bd98794cc2477a74c6",
+										Licenses: []types.License{
+											{
+												Type:  types.LicenseTypeName,
+												Value: "MIT",
+											},
+										},
+										Arch:   "x86_64",
+										Digest: "sha1:cb2316a189ebee5282c4a9bd98794cc2477a74c6",
 										InstalledFiles: []string{
 											"lib/libc.musl-x86_64.so.1",
 											"lib/ld-musl-x86_64.so.1",
@@ -142,9 +147,14 @@ func TestArtifact_Inspect(t *testing.T) {
 										Version:    "1.1.24-r2",
 										SrcName:    "musl",
 										SrcVersion: "1.1.24-r2",
-										Licenses:   []string{"MIT"},
-										Arch:       "x86_64",
-										Digest:     "sha1:cb2316a189ebee5282c4a9bd98794cc2477a74c6",
+										Licenses: []types.License{
+											{
+												Type:  types.LicenseTypeName,
+												Value: "MIT",
+											},
+										},
+										Arch:   "x86_64",
+										Digest: "sha1:cb2316a189ebee5282c4a9bd98794cc2477a74c6",
 										InstalledFiles: []string{
 											"lib/libc.musl-x86_64.so.1",
 											"lib/ld-musl-x86_64.so.1",

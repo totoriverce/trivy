@@ -238,9 +238,14 @@ var expectedBlobInfo = types.BlobInfo{
 					Version:    "1.2.3-r5",
 					SrcName:    "musl",
 					SrcVersion: "1.2.3-r5",
-					Licenses:   []string{"MIT"},
-					Arch:       "aarch64",
-					Digest:     "sha1:742b0a26f327c6da60d42a02c3eb6189a58e468f",
+					Licenses: types.Licenses{
+						{
+							Type:  types.LicenseTypeName,
+							Value: "MIT",
+						},
+					},
+					Arch:   "aarch64",
+					Digest: "sha1:742b0a26f327c6da60d42a02c3eb6189a58e468f",
 					InstalledFiles: []string{
 						"lib/ld-musl-aarch64.so.1",
 						"lib/libc.musl-aarch64.so.1",

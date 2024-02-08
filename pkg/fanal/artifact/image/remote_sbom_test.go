@@ -100,7 +100,12 @@ func TestArtifact_InspectRekorAttestation(t *testing.T) {
 											},
 											SrcName:    "musl",
 											SrcVersion: "1.2.3-r0",
-											Licenses:   []string{"MIT"},
+											Licenses: types.Licenses{
+												{
+													Type:  types.LicenseTypeName,
+													Value: "MIT",
+												},
+											},
 											Layer: types.Layer{
 												DiffID: "sha256:994393dc58e7931862558d06e46aa2bb17487044f670f310dffe1d24e4d1eec7",
 											},
