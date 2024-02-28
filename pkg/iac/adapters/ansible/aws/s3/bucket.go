@@ -47,7 +47,7 @@ func getEncryption(module parser.Module) s3.Encryption {
 		Metadata:  module.Metadata(),
 		Algorithm: module.GetStringAttr("encryption"),
 		KMSKeyId:  module.GetStringAttr("encryption_key_id"),
-		Enabled:   iacTypes.Bool(false, module.Metadata()), // TODO
+		Enabled:   iacTypes.Bool(false, module.Metadata()), // TODO: handle
 	}
 }
 

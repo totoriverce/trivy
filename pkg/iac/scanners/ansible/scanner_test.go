@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestXxx(t *testing.T) {
+func TestBasicScan(t *testing.T) {
 	fsys := fstest.MapFS{
 		"playbook.yaml": {
 			Data: []byte(`---

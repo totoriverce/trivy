@@ -41,7 +41,7 @@ ansible.builtin.yum:
 			err := yaml.Unmarshal([]byte(tt.src), &task)
 			require.NoError(t, err)
 
-			_, exists := task.GetModule(tt.moduleName)
+			_, exists := task.getModule(tt.moduleName)
 			assert.Equal(t, tt.want, exists)
 		})
 	}

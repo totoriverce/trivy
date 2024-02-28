@@ -3,8 +3,9 @@ package parser
 import (
 	"io/fs"
 
-	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
 	"gopkg.in/yaml.v3"
+
+	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
 )
 
 type Playbook []*Play
@@ -12,7 +13,7 @@ type Playbook []*Play
 func (p Playbook) Compile() Tasks {
 	var res Tasks
 	for _, play := range p {
-		res = append(res, play.Compile()...)
+		res = append(res, play.compile()...)
 	}
 	return res
 }
@@ -23,7 +24,8 @@ type Play struct {
 	metadata iacTypes.Metadata
 	rng      Range
 
-	raw map[string]any
+	roles []*Role
+	raw   map[string]any
 }
 
 type playInner struct {
@@ -39,7 +41,7 @@ type playInner struct {
 }
 
 func (p *Play) UnmarshalYAML(node *yaml.Node) error {
-	p.rng = RangeFromNode(node)
+	p.rng = rangeFromNode(node)
 
 	if err := node.Decode(&p.raw); err != nil {
 		return err
@@ -47,23 +49,30 @@ func (p *Play) UnmarshalYAML(node *yaml.Node) error {
 	return node.Decode(&p.inner)
 }
 
-// Compile compiles and returns the task list for this play, compiled from the
+// compile compiles and returns the task list for this play, compiled from the
 // roles (which are themselves compiled recursively) and/or the list of
 // tasks specified in the play.
-func (p *Play) Compile() Tasks {
+func (p *Play) compile() Tasks {
 	var res Tasks
 
-	// TODO: handle import_playbook, include_playbook and roles
+	// TODO: handle import_playbook, include_playbook
 
 	for _, task := range p.listTasks() {
-		res = append(res, task.Compile()...)
+		res = append(res, task.compile()...)
+	}
+
+	for _, role := range p.roles {
+		res = append(res, role.compile()...)
 	}
 
 	return res
 }
 
-func (p *Play) UpdateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string) {
+func (p *Play) roleDefinitions() []*RoleDefinition {
+	return p.inner.RoleDefinitions
+}
 
+func (p *Play) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string) {
 	p.metadata = iacTypes.NewMetadata(
 		iacTypes.NewRange(path, p.rng.startLine, p.rng.endLine, "", fsys),
 		"play",
@@ -100,7 +109,7 @@ type roleDefinitionInner struct {
 }
 
 func (r *RoleDefinition) UnmarshalYAML(node *yaml.Node) error {
-	r.rng = RangeFromNode(node)
+	r.rng = rangeFromNode(node)
 
 	// a role can be a string or a dictionary
 	if node.Kind == yaml.ScalarNode {
@@ -117,4 +126,8 @@ func (r *RoleDefinition) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, p
 		"",
 	)
 	r.metadata.SetParentPtr(parent)
+}
+
+func (r *RoleDefinition) name() string {
+	return r.inner.Name
 }

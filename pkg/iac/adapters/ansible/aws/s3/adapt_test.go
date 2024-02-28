@@ -33,10 +33,10 @@ func TestAdapt(t *testing.T) {
 		},
 	}
 
-	projects, err := parser.New(fsys).Parse(".")
+	project, err := parser.New(fsys, ".").Parse()
 	require.NoError(t, err)
 
-	tasks := projects[0].ListTasks()
+	tasks := project.ListTasks()
 
 	got := Adapt(tasks)
 	want := s3.S3{

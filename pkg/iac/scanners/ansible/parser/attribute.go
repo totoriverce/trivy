@@ -5,8 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
 	"gopkg.in/yaml.v3"
+
+	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
 )
 
 // TODO move this to a separate package, as a similar structure is used in CloudFormation
@@ -33,7 +34,7 @@ type attributeInner struct {
 }
 
 func (a *Attribute) UnmarshalYAML(node *yaml.Node) error {
-	a.rng = RangeFromNode(node)
+	a.rng = rangeFromNode(node)
 
 	if node.Content == nil {
 		switch node.Tag {

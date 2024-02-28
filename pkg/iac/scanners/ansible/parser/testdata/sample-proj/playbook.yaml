@@ -15,6 +15,9 @@
       src: /srv/httpd.j2
       dest: /etc/httpd.conf
 
+  roles:
+    - test
+
 - name: Update db servers
   hosts: databases
   remote_user: root

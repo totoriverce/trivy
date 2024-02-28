@@ -92,8 +92,7 @@ func (s *Scanner) Name() string {
 }
 
 func (s *Scanner) ScanFS(ctx context.Context, fsys fs.FS, dir string) (scan.Results, error) {
-	p := parser.New(fsys)
-	projects, err := p.Parse(dir)
+	projects, err := parser.ParseProjects(fsys, dir)
 	if err != nil {
 		return nil, err
 	}

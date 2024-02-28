@@ -7,7 +7,7 @@ type Range struct {
 	endLine   int
 }
 
-func RangeFromNode(node *yaml.Node) Range {
+func rangeFromNode(node *yaml.Node) Range {
 	return Range{
 		startLine: node.Line,
 		endLine:   calculateEndLine(node),
