@@ -115,6 +115,10 @@ func (a *Attribute) IsList() bool {
 	return a.Is(List)
 }
 
+func (a *Attribute) IsString() bool {
+	return a.Is(String)
+}
+
 func (a *Attribute) Is(kind attrKind) bool {
 	return !a.IsNil() && a.inner.kind == kind
 }

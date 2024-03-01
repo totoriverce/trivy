@@ -10,22 +10,13 @@ import (
 
 type Playbook []*Play
 
-func (p Playbook) Compile() Tasks {
-	var res Tasks
-	for _, play := range p {
-		res = append(res, play.compile()...)
-	}
-	return res
-}
-
 type Play struct {
 	inner playInner
 
 	metadata iacTypes.Metadata
 	rng      Range
 
-	roles []*Role
-	raw   map[string]any
+	raw map[string]any
 }
 
 type playInner struct {
@@ -46,26 +37,32 @@ func (p *Play) UnmarshalYAML(node *yaml.Node) error {
 	if err := node.Decode(&p.raw); err != nil {
 		return err
 	}
-	return node.Decode(&p.inner)
-}
 
-// compile compiles and returns the task list for this play, compiled from the
-// roles (which are themselves compiled recursively) and/or the list of
-// tasks specified in the play.
-func (p *Play) compile() Tasks {
-	var res Tasks
-
-	// TODO: handle import_playbook, include_playbook
+	if err := node.Decode(&p.inner); err != nil {
+		return err
+	}
 
 	for _, task := range p.listTasks() {
-		res = append(res, task.compile()...)
+		task.play = p
 	}
 
-	for _, role := range p.roles {
-		res = append(res, role.compile()...)
+	return nil
+}
+
+// TODO support collections
+// ansible.builtin.import_playbook: my_namespace.my_collection.my_playbook
+func (p *Play) isIncludePlaybook() (string, bool) {
+	for _, k := range withBuiltinPrefix("import_playbook", "include_playbook") {
+		val, exists := p.raw[k]
+		if !exists {
+			continue
+		}
+		// TODO: render tpl
+		playbookPath, ok := val.(string)
+		return playbookPath, ok
 	}
 
-	return res
+	return "", false
 }
 
 func (p *Play) roleDefinitions() []*RoleDefinition {

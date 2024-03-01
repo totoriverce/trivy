@@ -19,7 +19,7 @@ func TestParseProject(t *testing.T) {
 	require.NoError(t, err)
 
 	tasks := project.ListTasks()
-	assert.Len(t, tasks, 4)
+	assert.Len(t, tasks, 6)
 }
 
 func TestParser_Parse(t *testing.T) {
@@ -103,6 +103,221 @@ dependencies:
 				},
 			},
 			expectedTasks: []string{"Dependent task", "Role task"},
+		},
+		{
+			name: "block task",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- tasks:
+    - name: Test block
+      block:
+        - name: Test task 1
+          debug:
+            msg: Test task
+        - name: Test task 2
+          debug:
+            msg: Test task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task 1", "Test task 2"},
+		},
+		{
+			name: "include and import tasks in play",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  tasks:
+    - name: Test task
+      debug:
+        msg: Test task
+
+    - name: Include task list in play
+      ansible.builtin.include_tasks:
+        file: test.yaml
+
+    - name: Import task list in play
+      ansible.builtin.import_tasks:
+        file: test2.yaml
+`),
+				},
+				"test.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Included task
+  debug:
+    msg: Included task
+`),
+				},
+				"test2.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Imported task
+  debug:
+    msg: Imported task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task", "Included task", "Imported task"},
+		},
+		{
+			name: "include and import tasks in role",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Update web servers
+  hosts: localhost
+  roles:
+    - test
+`),
+				},
+				"roles/test/tasks/main.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Test task
+  debug:
+    msg: Test task
+
+- name: Include task list in play
+  ansible.builtin.include_tasks:
+    file: test.yaml
+
+- name: Import task list in play
+  ansible.builtin.import_tasks:
+    file: test2.yaml
+`),
+				},
+				"roles/test/tasks/test.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Included task
+  debug:
+    msg: Included task
+`),
+				},
+				"roles/test/tasks/test2.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Imported task
+  debug:
+    msg: Imported task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task", "Included task", "Imported task"},
+		},
+		{
+			name: "include role in play",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  tasks:
+    - name: Test task
+      include_role:
+        name: test
+        tasks_from: test
+`),
+				},
+				"roles/test/tasks/main.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Main task
+  debug:
+    msg: Main task
+`),
+				},
+				"roles/test/tasks/test.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Test task
+  debug:
+    msg: Test task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task"},
+		},
+		{
+			name: "import role in play",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  tasks:
+    - name: Test task
+      import_role:
+        name: test
+        tasks_from: test
+`),
+				},
+				"roles/test/tasks/main.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Main task
+  debug:
+    msg: Main task
+`),
+				},
+				"roles/test/tasks/test.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Test task
+  debug:
+    msg: Test task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task"},
+		},
+		{
+			name: "include role in role",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  roles:
+    - main
+`),
+				},
+				"roles/main/tasks/main.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Main task
+  include_role:
+    name: test
+    tasks_from: test
+`),
+				},
+				"roles/test/tasks/test.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Test task
+  debug:
+    msg: Test task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task"},
+		},
+		{
+			name: "import role in role",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  roles:
+    - main
+`),
+				},
+				"roles/main/tasks/main.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Main task
+  ansible.builtin.import_role:
+    name: test
+    tasks_from: test
+`),
+				},
+				"roles/test/tasks/test.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- name: Test task
+  debug:
+    msg: Test task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task"},
 		},
 	}
 

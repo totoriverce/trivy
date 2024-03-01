@@ -1,11 +1,21 @@
 package parser
 
 import (
+	"fmt"
 	"io/fs"
 
 	"gopkg.in/yaml.v3"
 
 	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
+	"github.com/mitchellh/mapstructure"
+	"github.com/samber/lo"
+)
+
+const (
+	includeRoleAction  = "include_role"
+	importRoleAction   = "import_role"
+	includeTasksAction = "include_tasks"
+	importTasksAction  = "import_tasks"
 )
 
 type Variables map[string]any
@@ -26,12 +36,28 @@ func (t Tasks) GetModules(names ...string) []Module {
 	return modules
 }
 
+// RoleIncludeModule represents the "include_role" or "import_role" module
+type RoleIncludeModule struct {
+	Name         string `mapstructure:"name"`
+	TasksFrom    string `mapstructure:"tasks_from"`
+	DefaultsFrom string `mapstructure:"defaults_from"`
+	VarsFrom     string `mapstructure:"vars_from"`
+	Public       bool   `mapstructure:"public"`
+}
+
+// TaskIncludeModule represents the "include_tasks" or "import_tasks" module
+type TaskInclude struct {
+	File string `mapstructure:"file"`
+}
+
 type Task struct {
 	inner    taskInner
 	rng      Range
 	metadata iacTypes.Metadata
 
-	raw map[string]*Attribute
+	raw  map[string]*Attribute
+	role *Role
+	play *Play
 }
 
 type taskInner struct {
@@ -62,6 +88,21 @@ func (t *Task) name() string {
 	return t.inner.Name
 }
 
+func (t *Task) path() string {
+	return t.metadata.Range().GetFilename()
+}
+
+func (t *Task) getPlay() *Play {
+	if t.role != nil {
+		return t.role.play
+	}
+	return t.play
+}
+
+func (t *Task) isBlock() bool {
+	return len(t.inner.Block) > 0
+}
+
 func (t *Task) getModule(name string) (Module, bool) {
 	val, exists := t.raw[name]
 	if !exists {
@@ -80,24 +121,6 @@ func (t *Task) getModule(name string) (Module, bool) {
 	}, true
 }
 
-func (t *Task) compile() Tasks {
-	// TODO: handle include_role, import_role, include_tasks and import_tasks
-	switch {
-	case len(t.inner.Block) > 0:
-		return t.compileBlockTasks()
-	default:
-		return Tasks{t}
-	}
-}
-
-func (t *Task) compileBlockTasks() Tasks {
-	var res []*Task
-	for _, task := range t.inner.Block {
-		res = append(res, task.compile()...)
-	}
-	return res
-}
-
 func (t *Task) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string) {
 	t.metadata = iacTypes.NewMetadata(
 		iacTypes.NewRange(path, t.rng.startLine, t.rng.endLine, "", fsys),
@@ -108,4 +131,73 @@ func (t *Task) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string
 	for _, attr := range t.raw {
 		attr.updateMetadata(fsys, &t.metadata, path)
 	}
+}
+
+// isModuleFreeForm determines whether a module parameter is defined as a free-form
+// string value within the task's raw data.
+//
+// Example:
+// - include_tasks: file.yml
+func (t *Task) isModuleFreeForm(moduleName string) (string, bool) {
+	param, exists := t.raw[moduleName]
+	if !exists {
+		return "", false
+	}
+
+	if param.IsString() {
+		return *param.AsString(), true
+	}
+
+	return "", false
+}
+
+func (t *Task) actionOneOf(actions []string) bool {
+	return lo.SomeBy(actions, func(action string) bool {
+		_, exists := t.raw[action]
+		return exists
+	})
+}
+
+func (t *Task) isTaskInclude() bool {
+	return t.actionOneOf(withBuiltinPrefix(importTasksAction, includeTasksAction))
+}
+
+func (t *Task) isRoleInclude() bool {
+	return t.actionOneOf(withBuiltinPrefix(importRoleAction, includeRoleAction))
+}
+
+func (t *Task) getTaskInclude() (TaskInclude, error) {
+	var module TaskInclude
+	if err := t.getIncludeModule([]string{includeTasksAction, importTasksAction}, &module); err != nil {
+		return module, err
+	}
+
+	return module, nil
+}
+
+func (t *Task) getRoleInclude() (RoleIncludeModule, error) {
+
+	var module RoleIncludeModule
+	if err := t.getIncludeModule([]string{includeRoleAction, importRoleAction}, &module); err != nil {
+		return module, err
+	}
+
+	return module, nil
+}
+
+func (t *Task) getIncludeModule(actions []string, dst any) error {
+	rawModule := make(map[string]string)
+	for _, action := range withBuiltinPrefix(actions...) {
+		if val, ok := t.isModuleFreeForm(action); ok {
+			rawModule["file"] = val
+		} else if val, ok := t.getModule(action); ok {
+			rawModule = val.toStringMap()
+		}
+	}
+
+	if err := mapstructure.Decode(rawModule, &dst); err != nil {
+		return fmt.Errorf("failed to decode include module: %w", err)
+	}
+
+	return nil
 }

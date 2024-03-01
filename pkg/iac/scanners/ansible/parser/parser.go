@@ -1,13 +1,13 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/samber/lo"
@@ -16,15 +16,28 @@ import (
 	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
 )
 
-const ansibleCfgFile = "ansible.cfg"
+const (
+	ansibleCfgFile = "ansible.cfg"
+
+	ansibleBuiltinPrefix = "ansible.builtin."
+)
+
+func applyBuiltinPrefix(action string) string {
+	return ansibleBuiltinPrefix + action
+}
+
+func withBuiltinPrefix(actions ...string) []string {
+	return append(actions, lo.Map(actions, func(action string, _ int) string {
+		return applyBuiltinPrefix(action)
+	})...)
+}
 
 type AnsibleProject struct {
 	path string
 
 	cfg AnsibleConfig
 	// inventory Inventory
-	mainPlaybook Playbook
-	playbooks    []Playbook
+	tasks Tasks
 }
 
 func (p *AnsibleProject) Path() string {
@@ -33,15 +46,7 @@ func (p *AnsibleProject) Path() string {
 
 // TODO(nikita): some tasks do not contain metadata
 func (p *AnsibleProject) ListTasks() Tasks {
-	var res Tasks
-	if p.mainPlaybook != nil {
-		res = append(res, p.mainPlaybook.Compile()...)
-	} else {
-		for _, playbook := range p.playbooks {
-			res = append(res, playbook.Compile()...)
-		}
-	}
-	return res
+	return p.tasks
 }
 
 type AnsibleConfig struct{}
@@ -64,7 +69,7 @@ func New(fsys fs.FS, root string) *Parser {
 }
 
 func ParseProjects(fsys fs.FS, dir string) ([]*AnsibleProject, error) {
-	projectPaths, err := autoDetectProjects(fsys, dir)
+	projectPaths, err := findAnsibleProjects(fsys, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +100,11 @@ func (p *Parser) Parse(playbooks ...string) (*AnsibleProject, error) {
 		}
 	}
 
-	if err := p.parsePlaybooks(project, playbooks); err != nil {
+	tasks, err := p.parsePlaybooks(project, playbooks)
+	if err != nil {
 		return nil, err
 	}
+	project.tasks = tasks
 	return project, nil
 }
 
@@ -115,54 +122,62 @@ func (p *Parser) initProject(root string) (*AnsibleProject, error) {
 	return project, nil
 }
 
-func (p *Parser) parsePlaybooks(project *AnsibleProject, paths []string) error {
+func (p *Parser) parsePlaybooks(project *AnsibleProject, paths []string) (Tasks, error) {
+
+	mainPlaybookPath, exists := lo.Find(paths, isMainPlaybook)
+	if exists {
+		log.Printf("Found the main playbook %s", mainPlaybookPath) // TODO use logger
+		paths = []string{mainPlaybookPath}
+	}
+
+	var res Tasks
 	for _, path := range paths {
 		playbook, err := p.loadPlaybook(nil, path)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		if playbook == nil {
-			return nil
-		}
-
-		if isMainPlaybook(path) {
-			project.mainPlaybook = playbook
-		} else {
-			project.playbooks = append(project.playbooks, playbook)
-		}
+		res = append(res, playbook...)
 	}
-	return nil
+	return res, nil
 }
 
-func (p *Parser) loadPlaybook(sourceMetadata *iacTypes.Metadata, filePath string) (Playbook, error) {
-
-	f, err := p.fsys.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
+func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (Tasks, error) {
 	var playbook Playbook
-	if err := yaml.NewDecoder(f).Decode(&playbook); err != nil {
+	if err := p.decodeYAMLFile(filePath, &playbook); err != nil {
 		// not all YAML files are playbooks.
-		log.Printf("Failed to decode playbook %q: %s", filePath, err)
+		log.Printf("Failed to decode likely playbook %q: %s", filePath, err)
 		return nil, nil
 	}
-	for _, play := range playbook {
-		play.updateMetadata(p.fsys, sourceMetadata, filePath)
 
-		roles := make([]*Role, 0, len(play.roleDefinitions()))
+	var res Tasks
+	for _, play := range playbook {
+		play.updateMetadata(p.fsys, parent, filePath)
+
+		for _, playTask := range play.listTasks() {
+			childrenTasks, err := p.compileTask(playTask)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, childrenTasks...)
+		}
+
 		for _, roleDef := range play.roleDefinitions() {
 			role, err := p.loadRole(&play.metadata, play, roleDef.name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to load role %q: %w", roleDef.name(), err)
 			}
-			roles = append(roles, role)
+			res = append(res, role.tasks...)
 		}
-		play.roles = roles
+
+		if playbookPath, ok := play.isIncludePlaybook(); ok {
+			includedTasks, err := p.loadPlaybook(&play.metadata, playbookPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load playbook from %q: %w", playbookPath, err)
+			}
+			res = append(res, includedTasks...)
+		}
 	}
-	return playbook, nil
+	return res, nil
 }
 
 type LoadRoleOptions struct {
@@ -177,6 +192,7 @@ func (o LoadRoleOptions) withDefaults() LoadRoleOptions {
 		TasksFile:    "main",
 		DefaultsFile: "main",
 		VarsFile:     "main",
+		Public:       new(bool),
 	}
 
 	if o.TasksFile != "" {
@@ -191,14 +207,18 @@ func (o LoadRoleOptions) withDefaults() LoadRoleOptions {
 		res.VarsFile = o.VarsFile
 	}
 
+	if o.Public != nil {
+		res.Public = o.Public
+	}
+
 	return res
 }
 
-func (p *Parser) loadRole(meta *iacTypes.Metadata, play *Play, roleName string) (*Role, error) {
-	return p.loadRoleWithOptions(meta, play, roleName, LoadRoleOptions{})
+func (p *Parser) loadRole(parent *iacTypes.Metadata, play *Play, roleName string) (*Role, error) {
+	return p.loadRoleWithOptions(parent, play, roleName, LoadRoleOptions{})
 }
 
-func (p *Parser) loadRoleWithOptions(meta *iacTypes.Metadata, play *Play, roleName string, opt LoadRoleOptions) (*Role, error) {
+func (p *Parser) loadRoleWithOptions(parent *iacTypes.Metadata, play *Play, roleName string, opt LoadRoleOptions) (*Role, error) {
 	opt = opt.withDefaults()
 
 	var rolePath string
@@ -216,94 +236,67 @@ func (p *Parser) loadRoleWithOptions(meta *iacTypes.Metadata, play *Play, roleNa
 		name: roleName,
 		play: play,
 	}
-	r.updateMetadata(p.fsys, meta, rolePath)
+	r.updateMetadata(p.fsys, parent, rolePath)
 
-	walkFn := func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		dir, filename := filepath.Split(path)
-		if !isYAMLFile(filename) {
-			return nil
-		}
-
-		parts := strings.Split(dir, string(os.PathSeparator))
-		parentFolder := parts[len(parts)-2]
-
-		switch parentFolder {
-		case "tasks":
-			if cutExtension(filename) != opt.TasksFile {
-				return nil
-			}
-			tasks, err := p.loadTasks(&r.metadata, r, path)
-			if err != nil {
-				return fmt.Errorf("failed to load tasks: %w", err)
-			}
-			r.tasks = tasks
-		case "defaults":
-			if cutExtension(filename) != opt.DefaultsFile {
-				return nil
-			}
-			if err := p.decodeYAMLFile(path, &r.defaults); err != nil {
-				return fmt.Errorf("failed to load defaults: %w", err)
-			}
-		case "vars":
-			if cutExtension(filename) != opt.VarsFile {
-				return nil
-			}
-			if err := p.decodeYAMLFile(path, &r.vars); err != nil {
-				return fmt.Errorf("failed to load vars: %w", err)
-			}
-		case "meta":
-			if cutExtension(filename) != "main" {
-				return nil
-			}
-			meta, err := p.parseMetaFile(path, r)
-			if err != nil {
-				return fmt.Errorf("failed to load meta: %w", err)
-			}
-			r.meta = meta
-		}
-		return nil
-	}
-	if err := fs.WalkDir(p.fsys, rolePath, walkFn); err != nil {
-		return nil, err
+	defaultsPath := path.Join(rolePath, "defaults", opt.DefaultsFile)
+	if err := p.decodeYAMLFileIgnoreExt(defaultsPath, &r.defaults); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to load defaults: %w", err)
 	}
 
-	for _, dep := range r.meta.dependencies() {
-		depRole, err := p.loadRole(&r.meta.metadata, r.play, dep.name())
-		if err != nil {
-			return nil, fmt.Errorf("failed to dependency %q of role %q: %w", dep.name(), r.name, err)
-		}
-		r.directDeps = append(r.directDeps, depRole)
+	varsPath := path.Join(rolePath, "vars", opt.VarsFile)
+	if err := p.decodeYAMLFileIgnoreExt(varsPath, &r.vars); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to load vars: %w", err)
 	}
+
+	depsTasks, err := p.loadRoleDependencies(r, rolePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load role deps: %w", err)
+	}
+
+	r.tasks = append(r.tasks, depsTasks...)
+
+	roleTasks, err := p.loadTasks(&r.metadata, r, path.Join(rolePath, "tasks", opt.TasksFile))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load tasks: %w", err)
+	}
+	r.tasks = append(r.tasks, roleTasks...)
 
 	p.roleCache[roleName] = rolePath
-
 	return r, nil
 }
 
-func (p *Parser) parseMetaFile(filePath string, role *Role) (RoleMeta, error) {
-	var meta RoleMeta
-	if err := p.decodeYAMLFile(filePath, &meta); err != nil {
-		return meta, err
+func (p *Parser) loadRoleDependencies(r *Role, rolePath string) (Tasks, error) {
+	var roleMeta RoleMeta
+	metaPath := path.Join(rolePath, "meta", "main")
+	if err := p.decodeYAMLFileIgnoreExt(metaPath, &roleMeta); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to load meta: %w", err)
 	}
-	meta.updateMetadata(p.fsys, &role.metadata, filePath)
-	return meta, nil
+
+	roleMeta.updateMetadata(p.fsys, &r.metadata, metaPath)
+
+	var tasks Tasks
+
+	for _, dep := range roleMeta.dependencies() {
+		depRole, err := p.loadRole(&roleMeta.metadata, r.play, dep.name())
+		if err != nil {
+			return nil, fmt.Errorf("failed to load dependency %q: %w", dep.name(), err)
+		}
+		r.directDeps = append(r.directDeps, depRole)
+		tasks = append(tasks, depRole.tasks...)
+	}
+	return tasks, nil
 }
 
+// TODO: support all possible locations of the role
+// https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_reuse_roles.html
 func (p *Parser) resolveRolePath(name string) (string, bool) {
-	paths := []string{filepath.Join(p.root, "roles", name)}
+	rolePaths := []string{path.Join(p.root, "roles", name)}
 	if defaultRolesPath, exists := os.LookupEnv("DEFAULT_ROLES_PATH"); exists {
-		paths = append(paths, defaultRolesPath)
+		// TODO: DEFAULT_ROLES_PATH can point to a directory outside of the virtual FS
+		rolePaths = append(rolePaths, filepath.Join(defaultRolesPath, name))
 	}
 
-	for _, rolePath := range paths {
+	for _, rolePath := range rolePaths {
 		if isPathExists(p.fsys, rolePath) {
 			return rolePath, true
 		}
@@ -312,17 +305,128 @@ func (p *Parser) resolveRolePath(name string) (string, bool) {
 	return "", false
 }
 
-func (p *Parser) loadTasks(sourceMetadata *iacTypes.Metadata, role *Role, filePath string) (Tasks, error) {
-	var tasks Tasks
-	if err := p.decodeYAMLFile(filePath, &tasks); err != nil {
+func (p *Parser) loadTasks(parent *iacTypes.Metadata, role *Role, filePath string) (Tasks, error) {
+	var roleTasks Tasks
+	decode := p.decodeYAMLFile
+	if path.Ext(filePath) == "" {
+		decode = p.decodeYAMLFileIgnoreExt
+	}
+	if err := decode(filePath, &roleTasks); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to decode tasks file %q: %w", filePath, err)
 	}
-	tasks = lo.Map(tasks, func(task *Task, _ int) *Task {
-		task.updateMetadata(p.fsys, sourceMetadata, filePath)
-		// task.role = role // TODO
-		return task
-	})
+
+	var tasks Tasks
+	for _, roleTask := range roleTasks {
+		roleTask.updateMetadata(p.fsys, parent, filePath)
+		roleTask.role = role
+		children, err := p.compileTask(roleTask)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, children...)
+	}
 	return tasks, nil
+}
+
+func (p *Parser) compileTask(t *Task) (Tasks, error) {
+	switch {
+	case t.isBlock():
+		// https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_blocks.html
+		return p.compileBlockTasks(t)
+	case t.isTaskInclude():
+		// https://docs.ansible.com/ansible/latest/collections/ansible/builtin/include_tasks_module.html
+		// https://docs.ansible.com/ansible/latest/collections/ansible/builtin/import_tasks_module.html
+		return p.compileTaskInclude(t)
+	case t.isRoleInclude():
+		// https://docs.ansible.com/ansible/latest/collections/ansible/builtin/include_role_module.html
+		// https://docs.ansible.com/ansible/latest/collections/ansible/builtin/import_role_module.html
+		return p.compileRoleInclude(t)
+	default:
+		// just task
+		return Tasks{t}, nil
+	}
+}
+
+func (p *Parser) compileBlockTasks(t *Task) (Tasks, error) {
+	var res []*Task
+	for _, task := range t.inner.Block {
+		children, err := p.compileTask(task)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, children...)
+	}
+	return res, nil
+}
+
+func (p *Parser) compileTaskInclude(task *Task) (Tasks, error) {
+	module, err := task.getTaskInclude()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: the task path can be absolute
+	tasksFile := filepath.Join(filepath.Dir(task.path()), module.File)
+
+	loadedTasks, err := p.loadTasks(&task.metadata, task.role, tasksFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load tasks from %q: %w", tasksFile, err)
+	}
+
+	var res []*Task
+
+	for _, loadedTask := range loadedTasks {
+		children, err := p.compileTask(loadedTask)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, children...)
+	}
+	return res, nil
+}
+
+func (p *Parser) compileRoleInclude(task *Task) (Tasks, error) {
+	module, err := task.getRoleInclude()
+	if err != nil {
+		return nil, err
+	}
+
+	role, err := p.loadRoleWithOptions(&task.metadata, task.getPlay(), module.Name, LoadRoleOptions{
+		TasksFile:    module.TasksFrom,
+		DefaultsFile: module.DefaultsFrom,
+		VarsFile:     module.VarsFrom,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to load role: %w", err)
+	}
+
+	var res []*Task
+
+	for _, task := range role.tasks {
+		// TODO: do not update the parent in the metadata here, as the dependency chain may be lost
+		// if the task is a role dependency task
+		// task.updateParent(t)
+		children, err := p.compileTask(task)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, children...)
+	}
+
+	return res, nil
+}
+
+func (p *Parser) decodeYAMLFileIgnoreExt(filePath string, dst any) error {
+	extensions := []string{".yaml", ".yml"}
+
+	for _, ext := range extensions {
+		file := filePath + ext
+		if isPathExists(p.fsys, file) {
+			return p.decodeYAMLFile(file, dst)
+		}
+	}
+
+	return os.ErrNotExist
 }
 
 func (p *Parser) decodeYAMLFile(filePath string, dst any) error {
@@ -356,7 +460,7 @@ func (p *Parser) resolvePlaybooksPaths(project *AnsibleProject) ([]string, error
 	return res, nil
 }
 
-func autoDetectProjects(fsys fs.FS, root string) ([]string, error) {
+func findAnsibleProjects(fsys fs.FS, root string) ([]string, error) {
 	var res []string
 	walkFn := func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

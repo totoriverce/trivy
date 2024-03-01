@@ -17,25 +17,8 @@ type Role struct {
 	tasks    []*Task
 	defaults Variables
 	vars     Variables
-	meta     RoleMeta
 
 	directDeps []*Role
-}
-
-// compile returns the list of tasks for this role, which is created by first recursively
-// compiling tasks for all direct dependencies and then adding tasks for this role.
-// https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_reuse_roles.html#using-role-dependencies
-func (r *Role) compile() Tasks {
-	var res Tasks
-
-	for _, dep := range r.getDirectDeps() {
-		res = append(res, dep.compile()...)
-	}
-
-	for _, task := range r.tasks {
-		res = append(res, task.compile()...)
-	}
-	return res
 }
 
 func (m *Role) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string) {

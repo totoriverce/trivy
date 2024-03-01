@@ -12,6 +12,16 @@ type Module struct {
 	attrs map[string]*Attribute
 }
 
+func (m Module) toStringMap() map[string]string {
+	res := make(map[string]string)
+	for k, v := range m.attrs {
+		if v.IsString() {
+			res[k] = *v.AsString()
+		}
+	}
+	return res
+}
+
 func (m *Module) Metadata() iacTypes.Metadata {
 	return m.metadata
 }

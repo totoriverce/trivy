@@ -31,7 +31,6 @@ func newAnsibleConfigAnalyzer(opts analyzer.AnalyzerOptions) (analyzer.PostAnaly
 	return &ansibleConfigAnalyzer{Analyzer: a}, nil
 }
 
-// Required overrides config.Analyzer.Required() and check if the given file is JSON.
 func (a *ansibleConfigAnalyzer) Required(filePath string, _ os.FileInfo) bool {
 	return slices.Contains([]string{".yml", ".yaml"}, filepath.Ext(filePath))
 }

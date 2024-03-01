@@ -238,7 +238,7 @@ func init() {
 		return false
 	}
 
-	// TODO
+	// TODO improve detection
 	matchers[FileTypeAnsible] = func(name string, r io.ReadSeeker) bool {
 		return slices.Contains([]string{".yml", ".yaml"}, filepath.Ext(name))
 	}
