@@ -501,10 +501,25 @@ func isAnsibleProject(fsys fs.FS, filePath string) bool {
 	}
 
 	if entries, err := doublestar.Glob(fsys, "*.{.yml,yaml}"); err == nil && len(entries) > 0 {
-		return true
+		for _, entry := range entries {
+			if isPlaybook(fsys, path.Join(filePath, entry)) {
+				return true
+			}
+		}
 	}
 
 	return false
+}
+
+func isPlaybook(fsys fs.FS, filePath string) bool {
+	f, err := fsys.Open(filePath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	var playbook Playbook
+	return yaml.NewDecoder(f).Decode(playbook) != nil
 }
 
 func isPathExists(fsys fs.FS, filePath string) bool {
