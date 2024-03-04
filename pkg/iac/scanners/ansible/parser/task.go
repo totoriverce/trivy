@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io/fs"
 
+	"github.com/mitchellh/mapstructure"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 
 	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
-	"github.com/mitchellh/mapstructure"
-	"github.com/samber/lo"
 )
 
 const (

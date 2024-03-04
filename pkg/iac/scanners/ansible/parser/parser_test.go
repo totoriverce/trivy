@@ -366,6 +366,33 @@ dependencies:
 			},
 			expectedTasks: []string{"Task", "Included Task"},
 		},
+		{
+			name: "with unused role",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: localhost
+  roles: 
+    - main
+`),
+				},
+				"roles/main/tasks/main.yaml": {
+					Data: []byte(`---
+- name: Main role task
+  debug:
+    msg: test
+`),
+				},
+				"roles/unused/tasks/main.yaml": {
+					Data: []byte(`---
+- name: Unused task
+  debug:
+    msg: test
+`),
+				},
+			},
+			expectedTasks: []string{"Main role task"},
+		},
 	}
 
 	for _, tt := range tests {

@@ -56,11 +56,11 @@ type Parser struct {
 	root string
 
 	includedPlaybooks map[string]bool
-	playbooksCache    map[string]*Playbook
+	// The cache key is the path to the playbook
+	playbookCache map[string]*Playbook
 
 	// The cache key is the role name
-	// The cache value is the path to the role definition directory
-	roleCache map[string]string
+	roleCache map[string]*Role
 }
 
 func New(fsys fs.FS, root string) *Parser {
@@ -68,8 +68,8 @@ func New(fsys fs.FS, root string) *Parser {
 		fsys:              fsys,
 		root:              root,
 		includedPlaybooks: make(map[string]bool),
-		playbooksCache:    make(map[string]*Playbook),
-		roleCache:         make(map[string]string),
+		playbookCache:     make(map[string]*Playbook),
+		roleCache:         make(map[string]*Role),
 	}
 }
 
@@ -158,8 +158,8 @@ func (p *Parser) parsePlaybooks(project *AnsibleProject, paths []string) (Tasks,
 
 func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (*Playbook, error) {
 
-	if val, exists := p.playbooksCache[filePath]; exists {
-		return val, nil
+	if cachedPlaybook, exists := p.playbookCache[filePath]; exists {
+		return cachedPlaybook, nil
 	}
 
 	var playbook Playbook
@@ -186,7 +186,7 @@ func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (*Play
 			if err != nil {
 				return nil, fmt.Errorf("failed to load role %q: %w", roleDef.name(), err)
 			}
-			playbook.Tasks = append(playbook.Tasks, role.tasks...)
+			playbook.Tasks = append(playbook.Tasks, role.getTasks()...)
 		}
 
 		// TODO: parse variables
@@ -201,7 +201,7 @@ func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (*Play
 		}
 	}
 
-	p.playbooksCache[filePath] = &playbook
+	p.playbookCache[filePath] = &playbook
 	return &playbook, nil
 }
 
@@ -244,13 +244,15 @@ func (p *Parser) loadRole(parent *iacTypes.Metadata, play *Play, roleName string
 }
 
 func (p *Parser) loadRoleWithOptions(parent *iacTypes.Metadata, play *Play, roleName string, opt LoadRoleOptions) (*Role, error) {
-	opt = opt.withDefaults()
 
-	var rolePath string
-	if val, exists := p.roleCache[roleName]; exists {
-		rolePath = val
-	} else if val, exists := p.resolveRolePath(roleName); exists {
-		rolePath = val
+	cachedRole, exists := p.roleCache[roleName]
+	if exists {
+		return cachedRole, nil
+	}
+
+	rolePath, exists := p.resolveRolePath(roleName)
+	if !exists {
+		return nil, errors.New("role not found")
 	}
 
 	if rolePath == "" {
@@ -258,58 +260,63 @@ func (p *Parser) loadRoleWithOptions(parent *iacTypes.Metadata, play *Play, role
 	}
 
 	r := &Role{
-		name: roleName,
-		play: play,
+		name:  roleName,
+		play:  play,
+		opt:   opt.withDefaults(),
+		tasks: make(map[string]Tasks),
 	}
 	r.updateMetadata(p.fsys, parent, rolePath)
 
+	// TODO: add all defaults to role
 	defaultsPath := path.Join(rolePath, "defaults", opt.DefaultsFile)
 	if err := p.decodeYAMLFileIgnoreExt(defaultsPath, &r.defaults); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to load defaults: %w", err)
 	}
 
+	// TODO: add all vars to role
 	varsPath := path.Join(rolePath, "vars", opt.VarsFile)
 	if err := p.decodeYAMLFileIgnoreExt(varsPath, &r.vars); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to load vars: %w", err)
 	}
 
-	depsTasks, err := p.loadRoleDependencies(r, rolePath)
-	if err != nil {
+	if err := p.loadRoleDependencies(r, rolePath); err != nil {
 		return nil, fmt.Errorf("failed to load role deps: %w", err)
 	}
 
-	r.tasks = append(r.tasks, depsTasks...)
-
-	roleTasks, err := p.loadTasks(&r.metadata, r, path.Join(rolePath, "tasks", opt.TasksFile))
+	taskFiles, err := fs.ReadDir(p.fsys, path.Join(rolePath, "tasks"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to load tasks: %w", err)
+		return nil, err
 	}
-	r.tasks = append(r.tasks, roleTasks...)
 
-	p.roleCache[roleName] = rolePath
+	for _, taskFile := range taskFiles {
+		roleTasks, err := p.loadTasks(&r.metadata, r, path.Join(rolePath, "tasks", taskFile.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to load tasks: %w", err)
+		}
+		r.tasks[cutExtension(taskFile.Name())] = roleTasks
+	}
+
+	p.roleCache[roleName] = r
 	return r, nil
 }
 
-func (p *Parser) loadRoleDependencies(r *Role, rolePath string) (Tasks, error) {
+func (p *Parser) loadRoleDependencies(r *Role, rolePath string) error {
 	var roleMeta RoleMeta
 	metaPath := path.Join(rolePath, "meta", "main")
 	if err := p.decodeYAMLFileIgnoreExt(metaPath, &roleMeta); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("failed to load meta: %w", err)
+		return fmt.Errorf("failed to load meta: %w", err)
 	}
 
 	roleMeta.updateMetadata(p.fsys, &r.metadata, metaPath)
 
-	var tasks Tasks
-
 	for _, dep := range roleMeta.dependencies() {
 		depRole, err := p.loadRole(&roleMeta.metadata, r.play, dep.name())
 		if err != nil {
-			return nil, fmt.Errorf("failed to load dependency %q: %w", dep.name(), err)
+			return fmt.Errorf("failed to load dependency %q: %w", dep.name(), err)
 		}
 		r.directDeps = append(r.directDeps, depRole)
-		tasks = append(tasks, depRole.tasks...)
 	}
-	return tasks, nil
+	return nil
 }
 
 // TODO: support all possible locations of the role
@@ -427,7 +434,7 @@ func (p *Parser) compileRoleInclude(task *Task) (Tasks, error) {
 
 	var res []*Task
 
-	for _, task := range role.tasks {
+	for _, task := range role.getTasks() {
 		// TODO: do not update the parent in the metadata here, as the dependency chain may be lost
 		// if the task is a role dependency task
 		// task.updateParent(t)

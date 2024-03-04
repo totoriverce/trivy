@@ -14,7 +14,10 @@ type Role struct {
 	metadata iacTypes.Metadata
 	play     *Play
 
-	tasks    []*Task
+	opt LoadRoleOptions
+
+	// tasks    []*Task
+	tasks    map[string]Tasks
 	defaults Variables
 	vars     Variables
 
@@ -29,8 +32,16 @@ func (m *Role) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string
 	m.metadata.SetParentPtr(parent)
 }
 
-func (r *Role) getDirectDeps() []*Role {
-	return r.directDeps
+func (r *Role) getTasks() Tasks {
+	var tasks Tasks
+
+	for _, dep := range r.directDeps {
+		tasks = append(tasks, dep.getTasks()...)
+	}
+
+	tasks = append(tasks, r.tasks[r.opt.TasksFile]...)
+
+	return tasks
 }
 
 type RoleMeta struct {
