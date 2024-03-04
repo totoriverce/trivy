@@ -393,6 +393,30 @@ dependencies:
 			},
 			expectedTasks: []string{"Main role task"},
 		},
+		{
+			name: "with main playbook",
+			fsys: fstest.MapFS{
+				"site.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  tasks:
+    - name: Task
+      debug:
+        msg: Test
+`),
+				},
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  tasks:
+    - name: Unused task
+      debug:
+        msg: Test
+`),
+				},
+			},
+			expectedTasks: []string{"Task"},
+		},
 	}
 
 	for _, tt := range tests {
