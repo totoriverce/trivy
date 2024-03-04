@@ -8,7 +8,15 @@ import (
 	iacTypes "github.com/aquasecurity/trivy/pkg/iac/types"
 )
 
-type Playbook []*Play
+type Playbook struct {
+	Path  string
+	Plays []*Play
+	Tasks Tasks
+}
+
+func (p *Playbook) UnmarshalYAML(node *yaml.Node) error {
+	return node.Decode(&p.Plays)
+}
 
 type Play struct {
 	inner playInner

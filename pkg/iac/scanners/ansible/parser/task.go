@@ -46,7 +46,7 @@ type RoleIncludeModule struct {
 }
 
 // TaskIncludeModule represents the "include_tasks" or "import_tasks" module
-type TaskInclude struct {
+type TaskIncludeModule struct {
 	File string `mapstructure:"file"`
 }
 
@@ -138,6 +138,7 @@ func (t *Task) updateMetadata(fsys fs.FS, parent *iacTypes.Metadata, path string
 //
 // Example:
 // - include_tasks: file.yml
+// TODO: add test
 func (t *Task) isModuleFreeForm(moduleName string) (string, bool) {
 	param, exists := t.raw[moduleName]
 	if !exists {
@@ -166,23 +167,14 @@ func (t *Task) isRoleInclude() bool {
 	return t.actionOneOf(withBuiltinPrefix(importRoleAction, includeRoleAction))
 }
 
-func (t *Task) getTaskInclude() (TaskInclude, error) {
-	var module TaskInclude
-	if err := t.getIncludeModule([]string{includeTasksAction, importTasksAction}, &module); err != nil {
-		return module, err
-	}
-
-	return module, nil
+func (t *Task) getTaskInclude() (TaskIncludeModule, error) {
+	var module TaskIncludeModule
+	return module, t.getIncludeModule([]string{includeTasksAction, importTasksAction}, &module)
 }
 
 func (t *Task) getRoleInclude() (RoleIncludeModule, error) {
-
 	var module RoleIncludeModule
-	if err := t.getIncludeModule([]string{includeRoleAction, importRoleAction}, &module); err != nil {
-		return module, err
-	}
-
-	return module, nil
+	return module, t.getIncludeModule([]string{includeRoleAction, importRoleAction}, &module)
 }
 
 func (t *Task) getIncludeModule(actions []string, dst any) error {

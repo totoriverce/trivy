@@ -55,6 +55,9 @@ type Parser struct {
 	fsys fs.FS
 	root string
 
+	includedPlaybooks map[string]bool
+	playbooksCache    map[string]*Playbook
+
 	// The cache key is the role name
 	// The cache value is the path to the role definition directory
 	roleCache map[string]string
@@ -62,9 +65,11 @@ type Parser struct {
 
 func New(fsys fs.FS, root string) *Parser {
 	return &Parser{
-		fsys:      fsys,
-		root:      root,
-		roleCache: make(map[string]string),
+		fsys:              fsys,
+		root:              root,
+		includedPlaybooks: make(map[string]bool),
+		playbooksCache:    make(map[string]*Playbook),
+		roleCache:         make(map[string]string),
 	}
 }
 
@@ -104,6 +109,7 @@ func (p *Parser) Parse(playbooks ...string) (*AnsibleProject, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	project.tasks = tasks
 	return project, nil
 }
@@ -123,34 +129,48 @@ func (p *Parser) initProject(root string) (*AnsibleProject, error) {
 }
 
 func (p *Parser) parsePlaybooks(project *AnsibleProject, paths []string) (Tasks, error) {
-
 	mainPlaybookPath, exists := lo.Find(paths, isMainPlaybook)
 	if exists {
 		log.Printf("Found the main playbook %s", mainPlaybookPath) // TODO use logger
 		paths = []string{mainPlaybookPath}
 	}
 
-	var res Tasks
+	var playbooks []*Playbook
 	for _, path := range paths {
 		playbook, err := p.loadPlaybook(nil, path)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, playbook...)
+		playbooks = append(playbooks, playbook)
 	}
+
+	var res Tasks
+
+	for _, playbook := range playbooks {
+		// skip included playbooks to avoid duplication of tasks
+		if _, exists := p.includedPlaybooks[playbook.Path]; !exists {
+			res = append(res, playbook.Tasks...)
+		}
+	}
+
 	return res, nil
 }
 
-func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (Tasks, error) {
+func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (*Playbook, error) {
+
+	if val, exists := p.playbooksCache[filePath]; exists {
+		return val, nil
+	}
+
 	var playbook Playbook
 	if err := p.decodeYAMLFile(filePath, &playbook); err != nil {
 		// not all YAML files are playbooks.
 		log.Printf("Failed to decode likely playbook %q: %s", filePath, err)
 		return nil, nil
 	}
+	playbook.Path = filePath
 
-	var res Tasks
-	for _, play := range playbook {
+	for _, play := range playbook.Plays {
 		play.updateMetadata(p.fsys, parent, filePath)
 
 		for _, playTask := range play.listTasks() {
@@ -158,7 +178,7 @@ func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (Tasks
 			if err != nil {
 				return nil, err
 			}
-			res = append(res, childrenTasks...)
+			playbook.Tasks = append(playbook.Tasks, childrenTasks...)
 		}
 
 		for _, roleDef := range play.roleDefinitions() {
@@ -166,18 +186,23 @@ func (p *Parser) loadPlaybook(parent *iacTypes.Metadata, filePath string) (Tasks
 			if err != nil {
 				return nil, fmt.Errorf("failed to load role %q: %w", roleDef.name(), err)
 			}
-			res = append(res, role.tasks...)
+			playbook.Tasks = append(playbook.Tasks, role.tasks...)
 		}
 
+		// TODO: parse variables
+		// https://docs.ansible.com/ansible/latest/collections/ansible/builtin/import_playbook_module.html
 		if playbookPath, ok := play.isIncludePlaybook(); ok {
-			includedTasks, err := p.loadPlaybook(&play.metadata, playbookPath)
+			includedPlaybook, err := p.loadPlaybook(&play.metadata, playbookPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load playbook from %q: %w", playbookPath, err)
 			}
-			res = append(res, includedTasks...)
+			p.includedPlaybooks[playbookPath] = true
+			playbook.Tasks = append(playbook.Tasks, includedPlaybook.Tasks...)
 		}
 	}
-	return res, nil
+
+	p.playbooksCache[filePath] = &playbook
+	return &playbook, nil
 }
 
 type LoadRoleOptions struct {

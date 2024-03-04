@@ -177,11 +177,11 @@ dependencies:
   debug:
     msg: Test task
 
-- name: Include task list in play
+- name: Include task list in role
   ansible.builtin.include_tasks:
     file: test.yaml
 
-- name: Import task list in play
+- name: Import task list in role
   ansible.builtin.import_tasks:
     file: test2.yaml
 `),
@@ -318,6 +318,53 @@ dependencies:
 				},
 			},
 			expectedTasks: []string{"Test task"},
+		},
+		{
+			name: "include tasks is free form",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: all
+  tasks:
+    - include_tasks: playbooks/test.yml
+`),
+				},
+				"playbooks/test.yml": {
+					Data: []byte(`---
+- name: Test task
+  debug:
+    msg: Test task
+`),
+				},
+			},
+			expectedTasks: []string{"Test task"},
+		},
+		{
+			name: "import playbook",
+			fsys: fstest.MapFS{
+				"playbook.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: localhost
+  tasks:
+    - name: Task
+      debug:
+        msg: test
+
+- name: Include playbook
+  ansible.builtin.import_playbook: other.yaml
+`),
+				},
+				"other.yaml": &fstest.MapFile{
+					Data: []byte(`---
+- hosts: localhost
+  tasks:
+    - name: Included Task
+      debug:
+        msg: test
+`),
+				},
+			},
+			expectedTasks: []string{"Task", "Included Task"},
 		},
 	}
 
