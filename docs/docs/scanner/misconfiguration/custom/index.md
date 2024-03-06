@@ -119,7 +119,7 @@ Trivy supports extra fields in the `custom` section as described below.
     #     - type: kubernetes
     ```
   
-If you are creating checks for your Trivy misconfiguration scans, all fields are optional. The `schemas` field should be used to enable policy validation using a built-in schema. The 
+If you are creating checks for your Trivy misconfiguration scans, some fields are optional as referenced in the table below. The `schemas` field should be used to enable policy validation using a built-in schema. The 
 schema that will be used is based on the input document type. It is recommended to use this to ensure your policies are 
 correct and do not reference incorrect properties/values.
 
