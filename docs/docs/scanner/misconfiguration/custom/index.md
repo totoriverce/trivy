@@ -63,7 +63,7 @@ If you add a new custom policy, it must be defined under a new package like `use
 
 `# METADATA` (optional unless the check will be contributed into Trivy)
 :   - SHOULD be defined for clarity since these values will be displayed in the scan results
-    - `custom.input` SHOULD be set to indicate the input type the policy should be applied to. See [list of available types](https://github.com/aquasecurity/defsec/blob/418759b4dc97af25f30f32e0bd365be7984003a1/pkg/types/sources.go)
+    - `custom.input` SHOULD be set to indicate the input type the policy should be applied to. See [list of available types][source-types]
 
 `package` (required)
 :   - MUST follow the Rego's [specification][package]
@@ -123,22 +123,26 @@ If you are creating checks for your Trivy misconfiguration scans, some fields ar
 schema that will be used is based on the input document type. It is recommended to use this to ensure your policies are 
 correct and do not reference incorrect properties/values.
 
-| Field name                 | Allowed values                                                    | Description                                             |         Default value         |     In table     |     In JSON      |     Required in Trivy Check     |
-|----------------------------|-------------------------------------------------------------------|:-------------------------------------------------------:|:-----------------------------:|:----------------:|:----------------:| :-----------------------------: |
-| title                      | Any characters                                                    | Name of the policy                                      |              N/A              | :material-check: | :material-check: |     :material-check:            |
-| description                | Any characters                                                    | Description of the problem                              |              N/A              | :material-close: | :material-check: |     :material-check:            |
-| schemas.input              | `schema["kubernetes"]`, `schema["dockerfile"]`, `schema["cloud"]` | Used to validate the policy for syntax errors           |  (applied to all input types) | :material-close: | :material-close: |     :material-check:            |
-| scope                      | `package`                                                         | Defines the policy scope                                |  (applied to all input types) | :material-close: | :material-check: |     :material-check:            |
-| custom.id                  | Any characters                                                    | More information provided below                         |              N/A              | :material-close: | :material-check: |     :material-check:            |
-| custom.avd_id              | Any characters                                                    | More information provided below                         |              N/A              | :material-close: | :material-check: |     :material-check:            |
-| custom.severity            | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`                               | The severity of the misconfiguration                    |            `MEDIUM`           | :material-close: | :material-check: |     :material-check:            |
-| custom.provider            | Any provider available in Trivy                                   | The resource provider this check relates to             |              N/A              | :material-close: | :material-check: |     :material-close:            |
-| custom.service             | The service name of the provider                                  | One of the services available in the provider           |              N/A              | :material-close: | :material-check: |     :material-close:            |
-| custom.short_code          | Any characters                                                    | Descriptive name for the check                          |              N/A              | :material-close: | :material-check: |     :material-check:            |
-| custom.subtypes            | Cloud Resource Subtypes                                           | Refer to the section on subtypes below                  |              N/A              | :material-close: | :material-check: |     :material-close:            |
-| custom.recommended_actions | Any characters                                                    | Describing what the user should do to resolve the issue |              N/A              | :material-close: | :material-check: |     :material-check:            |
-| custom.input.selector.type | Any item(s) in [this list][source-types]                          | More information provided below                         |              N/A              | :material-close: | :material-check: |     :material-check:            |
-| related_resource           | Any characters                                                    | URL to related resources                                |              N/A              | :material-close: | :material-check: |     :material-check:            |
+| Field name                 | Allowed values                                                    | Description                                             |    Required in Trivy Check     |         Default value         |     In table     |     In JSON      |
+|----------------------------|-------------------------------------------------------------------|:-------------------------------------------------------:|:------------------------------:|:-----------------------------:|:----------------:|:----------------:|
+| title                      | Any characters                                                    | Name of the policy                                      |     :material-check:           |              N/A              | :material-check: | :material-check: |
+| description                | Any characters                                                    | Description of the problem                              |     :material-check:           |              N/A              | :material-close: | :material-check: | 
+| schemas.input              | `schema["One of the available schemas"]`                          | Used to validate the policy for syntax errors           |     :material-close:           |  (applied to all input types) | :material-close: | :material-close: |
+| scope                      | `package`                                                         | Defines the policy scope                                |     :material-check:           |  (applied to all input types) | :material-close: | :material-check: |
+| custom.id                  | Any characters                                                    | More information provided below                         |     :material-check:           |              N/A              | :material-close: | :material-check: |
+| custom.avd_id              | Any characters                                                    | More information provided below                         |     :material-check:           |              N/A              | :material-close: | :material-check: |
+| custom.severity            | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`                               | The severity of the misconfiguration                    |     :material-check:           |            `MEDIUM`           | :material-close: | :material-check: |
+| custom.provider            | Any provider available in Trivy                                   | The resource provider this check relates to             |     :material-close:           |              N/A              | :material-close: | :material-check: |
+| custom.service             | The service name of the provider                                  | One of the services available in the provider           |     :material-close:           |              N/A              | :material-close: | :material-check: |
+| custom.short_code          | Any characters                                                    | Descriptive name for the check                          |     :material-check:           |              N/A              | :material-close: | :material-check: |
+| custom.subtypes            | Cloud Resource Subtypes                                           | Refer to the section on subtypes below                  |     :material-close:           |              N/A              | :material-close: | :material-check: |
+| custom.recommended_actions | Any characters                                                    | Describing what the user should do to resolve the issue |     :material-check:           |              N/A              | :material-close: | :material-check: |
+| custom.input.selector.type | Any item(s) in [this list][source-types]                          | More information provided below                         |     :material-check:           |              N/A              | :material-close: | :material-check: |
+| related_resource           | Any characters                                                    | URL to related resources                                |     :material-check:           |              N/A              | :material-close: | :material-check: |
+
+#### schemas.input 
+
+The input schema is required for validating the checks for functional correctness (syntax). Any of the [schemas](./schema.md) can be referenced as the input.
 
 #### custom.avd_id and custom.id
 
@@ -148,11 +152,11 @@ The ID is based on the AVD_ID. For instance if the `avd_id` is `AVD-AWS-0176`, t
 
 #### custom.provider
 
-The `provider` field references the [provider](https://github.com/aquasecurity/defsec/tree/master/pkg/providers) available in Trivy. This should be the same as the provider name in the `pkg/iac/providers` directory, e.g. `aws`. 
+The `provider` field references the [provider](https://github.com/aquasecurity/trivy/tree/main/pkg/iac/providers) available in Trivy. This should be the same as the provider name in the `pkg/iac/providers` directory, e.g. `aws`. 
 
 #### custom.service
 
-The `service` is the name of the service by the provider that the check targets. This should be the same as the service name in the `pkg/iac/providers` directory ([Link](https://github.com/aquasecurity/trivy/tree/main/pkg/iac/providers)), e.g. `rds`.
+Services are defined within a provider. For instance, RDS is a service and AWS is a provider. This should be the same as the service name in one of the provider directories. ([Link](https://github.com/aquasecurity/trivy/tree/main/pkg/iac/providers)), e.g. `aws/rds`.
 
 #### custom.input
 
@@ -210,7 +214,7 @@ You can specify input format via the `custom.input` annotation.
     - `dockerfile` (Dockerfile)
     - `kubernetes` (Kubernetes YAML/JSON)
     - `rbac` (Kubernetes RBAC YAML/JSON)
-    - `cloud` (Cloud format, as defined by defsec - this is used for Terraform, CloudFormation, and Cloud/AWS scanning)
+    - `cloud` (Cloud format, as defined by Trivy - this is used for Terraform, CloudFormation, and Cloud/AWS scanning)
     - `yaml` (Generic YAML)
     - `json` (Generic JSON)
     - `toml` (Generic TOML)
@@ -229,4 +233,4 @@ See [here](schema.md) for the detail.
 
 [rego]: https://www.openpolicyagent.org/docs/latest/policy-language/
 [package]: https://www.openpolicyagent.org/docs/latest/policy-language/#packages
-[source-types]: https://github.com/aquasecurity/defsec/blob/418759b4dc97af25f30f32e0bd365be7984003a1/pkg/types/sources.go
+[source-types]: https://github.com/aquasecurity/trivy/blob/9361cdb7e28fd304d6fd2a1091feac64a6786672/pkg/iac/types/sources.go#L4
