@@ -7,11 +7,12 @@ type AccessAnalyzer struct {
 }
 
 type Analyzer struct {
-	Metadata types.Metadata
-	ARN      types.StringValue
-	Name     types.StringValue
-	Active   types.BoolValue
-	Findings []Findings
+	Metadata       types.Metadata
+	ARN            types.StringValue
+	Name           types.StringValue
+	Active         types.BoolValue
+	FooBarBazField types.BoolValue
+	Findings       []Findings
 }
 
 type Findings struct {
