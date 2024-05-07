@@ -165,7 +165,7 @@ func (sw *SarifWriter) Write(ctx context.Context, report types.Report) error {
 				resourceClass:    res.Class,
 				artifactLocation: path,
 				locationMessage:  fmt.Sprintf("%v: %v@%v", path, vuln.PkgName, vuln.InstalledVersion),
-				locations:        sw.getLocations(vuln.PkgName, vuln.InstalledVersion, path, res.Packages),
+				locations:        sw.getLocations(vuln.Locations),
 				resultIndex:      getRuleIndex(vuln.VulnerabilityID, ruleIndexes),
 				shortDescription: html.EscapeString(vuln.Title),
 				fullDescription:  html.EscapeString(fullDescription),
@@ -346,23 +346,13 @@ func clearURI(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(s, "\\", "/"), "git::https:/", "")
 }
 
-func (sw *SarifWriter) getLocations(name, version, path string, pkgs []ftypes.Package) []location {
-	id := fmt.Sprintf("%s@%s@%s", path, name, version)
-	locs, ok := sw.locationCache[id]
-	if !ok {
-		for _, pkg := range pkgs {
-			if name == pkg.Name && version == pkg.Version {
-				for _, l := range pkg.Locations {
-					loc := location{
-						startLine: l.StartLine,
-						endLine:   l.EndLine,
-					}
-					locs = append(locs, loc)
-				}
-				sw.locationCache[id] = locs
-				return locs
-			}
-		}
+func (sw *SarifWriter) getLocations(vulnLocations []ftypes.Location) []location {
+	var locs []location
+	for _, loc := range vulnLocations {
+		locs = append(locs, location{
+			startLine: loc.StartLine,
+			endLine:   loc.EndLine,
+		})
 	}
 	return locs
 }

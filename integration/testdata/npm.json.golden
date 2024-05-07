@@ -263,6 +263,12 @@
             "PURL": "pkg:npm/jquery@3.3.9",
             "UID": "e19e84d31f72b60c"
           },
+          "Locations": [
+            {
+              "StartLine": 11,
+              "EndLine": 15
+            }
+          ],
           "InstalledVersion": "3.3.9",
           "FixedVersion": "3.4.0",
           "Status": "fixed",

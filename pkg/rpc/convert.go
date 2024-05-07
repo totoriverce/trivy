@@ -327,6 +327,7 @@ func ConvertToRPCVulns(vulns []types.DetectedVulnerability) []*common.Vulnerabil
 			CustomAdvisoryData: customAdvisoryData,
 			CustomVulnData:     customVulnData,
 			DataSource:         ConvertToRPCDataSource(vuln.DataSource),
+			Locations:          ConvertToRPCLocations(vuln.Locations),
 		})
 	}
 	return rpcVulns
@@ -614,6 +615,7 @@ func ConvertFromRPCVulns(rpcVulns []*common.Vulnerability) []types.DetectedVulne
 			PrimaryURL:     vuln.PrimaryUrl,
 			Custom:         vuln.CustomAdvisoryData.AsInterface(),
 			DataSource:     ConvertFromRPCDataSource(vuln.DataSource),
+			Locations:      ConvertFromRPCLocations(vuln.Locations),
 		})
 	}
 	return vulns
@@ -1008,4 +1010,15 @@ func ConvertFromDeleteBlobsRequest(deleteBlobsRequest *cache.DeleteBlobsRequest)
 		return []string{}
 	}
 	return deleteBlobsRequest.GetBlobIds()
+}
+
+func ConvertFromRPCLocations(rpcPkgLocations []*common.Location) []ftypes.Location {
+	var parsedLocations []ftypes.Location
+	for _, loc := range rpcPkgLocations {
+		parsedLocations = append(parsedLocations, ftypes.Location{
+			StartLine: int(loc.GetStartLine()),
+			EndLine:   int(loc.GetEndLine()),
+		})
+	}
+	return parsedLocations
 }

@@ -167,6 +167,12 @@
             "PURL": "pkg:conan/pcre@8.43",
             "UID": "4e01c692a67e12e4"
           },
+          "Locations": [
+            {
+              "StartLine": 26,
+              "EndLine": 36
+            }
+          ],
           "InstalledVersion": "8.43",
           "FixedVersion": "8.45",
           "Status": "fixed",

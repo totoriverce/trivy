@@ -5,11 +5,12 @@ package integration
 
 import (
 	"context"
-	"github.com/aquasecurity/trivy/pkg/types"
 	"io"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/aquasecurity/trivy/pkg/types"
 
 	api "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"

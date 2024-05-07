@@ -45,6 +45,12 @@
             "PURL": "pkg:pypi/werkzeug@0.11.1",
             "UID": "390fc5ac777dc4e0"
           },
+          "Locations": [
+            {
+              "StartLine": 19,
+              "EndLine": 26
+            }
+          ],
           "InstalledVersion": "0.11.1",
           "FixedVersion": "0.15.3",
           "Status": "fixed",
@@ -102,6 +108,12 @@
             "PURL": "pkg:pypi/werkzeug@0.11.1",
             "UID": "390fc5ac777dc4e0"
           },
+          "Locations": [
+            {
+              "StartLine": 19,
+              "EndLine": 26
+            }
+          ],
           "InstalledVersion": "0.11.1",
           "FixedVersion": "0.11.6",
           "Status": "fixed",

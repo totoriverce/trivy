@@ -45,6 +45,12 @@
             "PURL": "pkg:nuget/Newtonsoft.Json@9.0.1",
             "UID": "19955f480b8a6340"
           },
+          "Locations": [
+            {
+              "StartLine": 8,
+              "EndLine": 14
+            }
+          ],
           "InstalledVersion": "9.0.1",
           "FixedVersion": "13.0.1",
           "Status": "fixed",

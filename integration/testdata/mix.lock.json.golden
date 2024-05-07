@@ -191,6 +191,12 @@
             "PURL": "pkg:hex/phoenix@1.6.13",
             "UID": "5b0d3fb75bef47e3"
           },
+          "Locations": [
+            {
+              "StartLine": 4,
+              "EndLine": 4
+            }
+          ],
           "InstalledVersion": "1.6.13",
           "FixedVersion": "1.6.14",
           "Status": "fixed",
