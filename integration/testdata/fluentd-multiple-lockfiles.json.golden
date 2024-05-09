@@ -27,9 +27,11 @@
       "Vulnerabilities": [
         {
           "VulnerabilityID": "CVE-2019-18276",
+          "PkgID": "bash@5.0-4",
           "PkgName": "bash",
           "PkgIdentifier": {
             "PURL": "pkg:deb/debian/bash@5.0-4?distro=debian-10.2",
+            "UID": "8ca99d0ea2f4b0a3",
             "BOMRef": "pkg:deb/debian/bash@5.0-4?distro=debian-10.2"
           },
           "InstalledVersion": "5.0-4",
@@ -90,9 +92,11 @@
           "VendorIDs": [
             "DSA-4613-1"
           ],
+          "PkgID": "libidn2-0@2.0.5-1",
           "PkgName": "libidn2-0",
           "PkgIdentifier": {
             "PURL": "pkg:deb/debian/libidn2-0@2.0.5-1?distro=debian-10.2",
+            "UID": "bd31ad93af9a5d2",
             "BOMRef": "pkg:deb/debian/libidn2-0@2.0.5-1?distro=debian-10.2"
           },
           "InstalledVersion": "2.0.5-1",
@@ -158,10 +162,12 @@
       "Vulnerabilities": [
         {
           "VulnerabilityID": "CVE-2020-8165",
+          "PkgID": "activesupport@6.0.2.1",
           "PkgName": "activesupport",
           "PkgPath": "var/lib/gems/2.5.0/specifications/activesupport-6.0.2.1.gemspec",
           "PkgIdentifier": {
             "PURL": "pkg:gem/activesupport@6.0.2.1",
+            "UID": "66a6de64809697cd",
             "BOMRef": "pkg:gem/activesupport@6.0.2.1?file_path=var%2Flib%2Fgems%2F2.5.0%2Fspecifications%2Factivesupport-6.0.2.1.gemspec"
           },
           "InstalledVersion": "6.0.2.1",

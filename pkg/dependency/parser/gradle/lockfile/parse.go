@@ -2,22 +2,22 @@ package lockfile
 
 import (
 	"bufio"
-	"fmt"
 	"strings"
 
-	"github.com/aquasecurity/trivy/pkg/dependency/parser/types"
+	"github.com/aquasecurity/trivy/pkg/dependency"
 	"github.com/aquasecurity/trivy/pkg/dependency/parser/utils"
+	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	xio "github.com/aquasecurity/trivy/pkg/x/io"
 )
 
 type Parser struct{}
 
-func NewParser() types.Parser {
+func NewParser() *Parser {
 	return &Parser{}
 }
 
-func (Parser) Parse(r xio.ReadSeekerAt) ([]types.Library, []types.Dependency, error) {
-	var libs []types.Library
+func (Parser) Parse(r xio.ReadSeekerAt) ([]ftypes.Package, []ftypes.Dependency, error) {
+	var pkgs []ftypes.Package
 	scanner := bufio.NewScanner(r)
 	var lineNum int
 	for scanner.Scan() {
@@ -35,18 +35,19 @@ func (Parser) Parse(r xio.ReadSeekerAt) ([]types.Library, []types.Dependency, er
 
 		name := strings.Join(dep[:2], ":")
 		version := strings.Split(dep[2], "=")[0] // remove classPaths
-		libs = append(libs, types.Library{
-			ID:      fmt.Sprintf("%s:%s", name, version),
+		pkgs = append(pkgs, ftypes.Package{
+			ID:      dependency.ID(ftypes.Gradle, name, version),
 			Name:    name,
 			Version: version,
-			Locations: []types.Location{
+			Locations: []ftypes.Location{
 				{
 					StartLine: lineNum,
 					EndLine:   lineNum,
 				},
 			},
+			Relationship: ftypes.RelationshipUnknown,
 		})
 
 	}
-	return utils.UniqueLibraries(libs), nil, nil
+	return utils.UniquePackages(pkgs), nil, nil
 }

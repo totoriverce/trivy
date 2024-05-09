@@ -28,11 +28,13 @@ func Test_packagingAnalyzer_Analyze(t *testing.T) {
 					{
 						Type:     types.PythonPkg,
 						FilePath: "kitchen-1.2.6-py2.7.egg",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
-								Name:     "kitchen",
-								Version:  "1.2.6",
-								Licenses: []string{"LGPLv2+"},
+								Name:    "kitchen",
+								Version: "1.2.6",
+								Licenses: []string{
+									"GNU Library or Lesser General Public License (LGPL)",
+								},
 								FilePath: "kitchen-1.2.6-py2.7.egg",
 							},
 						},
@@ -49,7 +51,7 @@ func Test_packagingAnalyzer_Analyze(t *testing.T) {
 					{
 						Type:     types.PythonPkg,
 						FilePath: "distlib-0.3.1.egg-info/PKG-INFO",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
 								Name:     "distlib",
 								Version:  "0.3.1",
@@ -70,7 +72,7 @@ func Test_packagingAnalyzer_Analyze(t *testing.T) {
 					{
 						Type:     types.PythonPkg,
 						FilePath: "setuptools-51.3.3.egg-info/PKG-INFO",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
 								Name:     "setuptools",
 								Version:  "51.3.3",
@@ -90,7 +92,7 @@ func Test_packagingAnalyzer_Analyze(t *testing.T) {
 					{
 						Type:     types.PythonPkg,
 						FilePath: "setuptools-51.3.3.dist-info/METADATA",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
 								Name:     "setuptools",
 								Version:  "51.3.3",
@@ -110,7 +112,7 @@ func Test_packagingAnalyzer_Analyze(t *testing.T) {
 					{
 						Type:     types.PythonPkg,
 						FilePath: "distlib-0.3.1.dist-info/METADATA",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
 								Name:     "distlib",
 								Version:  "0.3.1",
@@ -135,11 +137,16 @@ func Test_packagingAnalyzer_Analyze(t *testing.T) {
 					{
 						Type:     types.PythonPkg,
 						FilePath: "typing_extensions-4.4.0.dist-info/METADATA",
-						Libraries: []types.Package{
+						Packages: []types.Package{
 							{
-								Name:     "typing_extensions",
-								Version:  "4.4.0",
-								Licenses: []string{"BeOpen", "CNRI-Python-GPL-Compatible", "LicenseRef-MIT-Lucent", "Python-2.0"},
+								Name:    "typing_extensions",
+								Version: "4.4.0",
+								Licenses: []string{
+									"BeOpen",
+									"CNRI-Python-GPL-Compatible",
+									"LicenseRef-MIT-Lucent",
+									"Python-2.0",
+								},
 								FilePath: "typing_extensions-4.4.0.dist-info/METADATA",
 							},
 						},
