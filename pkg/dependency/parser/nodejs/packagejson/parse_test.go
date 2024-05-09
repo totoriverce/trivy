@@ -2,14 +2,13 @@ package packagejson_test
 
 import (
 	"os"
-	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/dependency/parser/nodejs/packagejson"
-	"github.com/aquasecurity/trivy/pkg/dependency/parser/types"
+	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 )
 
 func TestParse(t *testing.T) {
@@ -28,11 +27,11 @@ func TestParse(t *testing.T) {
 			// npm install --save promise jquery
 			// npm ls | grep -E -o "\S+@\S+" | awk -F@ 'NR>0 {printf("{\""$1"\", \""$2"\"},\n")}'
 			want: packagejson.Package{
-				Library: types.Library{
-					ID:      "bootstrap@5.0.2",
-					Name:    "bootstrap",
-					Version: "5.0.2",
-					License: "MIT",
+				Package: ftypes.Package{
+					ID:       "bootstrap@5.0.2",
+					Name:     "bootstrap",
+					Version:  "5.0.2",
+					Licenses: []string{"MIT"},
 				},
 				Dependencies: map[string]string{
 					"js-tokens": "^4.0.0",
@@ -54,11 +53,11 @@ func TestParse(t *testing.T) {
 			name:      "happy path - legacy license",
 			inputFile: "testdata/legacy_package.json",
 			want: packagejson.Package{
-				Library: types.Library{
-					ID:      "angular@4.1.2",
-					Name:    "angular",
-					Version: "4.1.2",
-					License: "ISC",
+				Package: ftypes.Package{
+					ID:       "angular@4.1.2",
+					Name:     "angular",
+					Version:  "4.1.2",
+					Licenses: []string{"ISC"},
 				},
 				Dependencies: map[string]string{},
 				DevDependencies: map[string]string{
@@ -71,11 +70,30 @@ func TestParse(t *testing.T) {
 			name:      "happy path - version doesn't exist",
 			inputFile: "testdata/without_version_package.json",
 			want: packagejson.Package{
-				Library: types.Library{
+				Package: ftypes.Package{
 					ID:   "",
 					Name: "angular",
 				},
 			},
+		},
+		{
+			name:      "happy path - workspace as struct",
+			inputFile: "testdata/workspace_as_map_package.json",
+			want: packagejson.Package{
+				Package: ftypes.Package{
+					ID:      "example@1.0.0",
+					Name:    "example",
+					Version: "1.0.0",
+				},
+				Workspaces: []string{
+					"packages/*",
+				},
+			},
+		},
+		{
+			name:      "invalid package name",
+			inputFile: "testdata/invalid_name.json",
+			wantErr:   "Name can only contain URL-friendly characters",
 		},
 		{
 			name:      "sad path",
@@ -91,15 +109,15 @@ func TestParse(t *testing.T) {
 			name:      "without name and version",
 			inputFile: "testdata/without_name_and_version_package.json",
 			want: packagejson.Package{
-				Library: types.Library{
-					License: "MIT",
+				Package: ftypes.Package{
+					Licenses: []string{"MIT"},
 				},
 			},
 		},
 	}
 
 	for _, v := range vectors {
-		t.Run(path.Base(v.name), func(t *testing.T) {
+		t.Run(v.name, func(t *testing.T) {
 			f, err := os.Open(v.inputFile)
 			require.NoError(t, err)
 			defer f.Close()
@@ -112,6 +130,57 @@ func TestParse(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, v.want, got)
+		})
+	}
+}
+
+func TestIsValidName(t *testing.T) {
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{
+			name: "",
+			want: true,
+		},
+		{
+			name: "test_package",
+			want: true,
+		},
+		{
+			name: "test.package",
+			want: true,
+		},
+		{
+			name: "test-package",
+			want: true,
+		},
+		{
+			name: "@test/package",
+			want: true,
+		},
+		{
+			name: "test@package",
+			want: false,
+		},
+		{
+			name: "test?package",
+			want: false,
+		},
+		{
+			name: "test/package",
+			want: false,
+		},
+		{
+			name: "package/",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valid := packagejson.IsValidName(tt.name)
+			require.Equal(t, tt.want, valid)
 		})
 	}
 }

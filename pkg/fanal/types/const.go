@@ -55,6 +55,7 @@ const (
 	Pipenv        LangType = "pipenv"
 	Poetry        LangType = "poetry"
 	CondaPkg      LangType = "conda-pkg"
+	CondaEnv      LangType = "conda-environment"
 	PythonPkg     LangType = "python-pkg"
 	NodePkg       LangType = "node-pkg"
 	Yarn          LangType = "yarn"
@@ -80,6 +81,14 @@ const (
 	RKE         LangType = "rke" // Rancher Kubernetes Engine
 	OCP         LangType = "ocp" // Red Hat OpenShift Container Platform
 )
+
+var AggregatingTypes = []LangType{
+	PythonPkg,
+	CondaPkg,
+	GemSpec,
+	NodePkg,
+	Jar,
+}
 
 // Config files
 const (
@@ -131,4 +140,7 @@ const (
 	PubSpecLock = "pubspec.lock"
 
 	MixLock = "mix.lock"
+
+	CondaEnvYaml = "environment.yaml"
+	CondaEnvYml  = "environment.yml"
 )

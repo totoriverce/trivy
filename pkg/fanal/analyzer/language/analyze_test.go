@@ -9,24 +9,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
 
-	xio "github.com/aquasecurity/trivy/pkg/x/io"
-	godeptypes "github.com/aquasecurity/trivy/pkg/dependency/parser/types"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer/language"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
+	xio "github.com/aquasecurity/trivy/pkg/x/io"
 )
 
 type mockParser struct {
 	t *testing.T
 }
 
-func (p *mockParser) Parse(r xio.ReadSeekerAt) ([]godeptypes.Library, []godeptypes.Dependency, error) {
+func (p *mockParser) Parse(r xio.ReadSeekerAt) ([]types.Package, []types.Dependency, error) {
 	b, err := io.ReadAll(r)
 	require.NoError(p.t, err)
 
 	switch string(b) {
 	case "happy":
-		return []godeptypes.Library{
+		return []types.Package{
 			{
 				Name:    "test",
 				Version: "1.2.3",
@@ -63,7 +62,7 @@ func TestAnalyze(t *testing.T) {
 					{
 						Type:     types.GoBinary,
 						FilePath: "app/myweb",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
 								Name:    "test",
 								Version: "1.2.3",

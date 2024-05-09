@@ -41,8 +41,9 @@ func Test_unpackagedHook_Handle(t *testing.T) {
 					{
 						Type:     types.GoModule,
 						FilePath: "go.mod",
-						Libraries: types.Packages{
+						Packages: types.Packages{
 							{
+								ID:      "github.com/spf13/cobra@v1.5.0",
 								Name:    "github.com/spf13/cobra",
 								Version: "1.5.0",
 								Identifier: types.PkgIdentifier{
@@ -73,7 +74,7 @@ func Test_unpackagedHook_Handle(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, log.InitLogger(false, true))
+	log.InitLogger(false, true)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := rekortest.NewServer(t)

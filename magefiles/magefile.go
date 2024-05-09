@@ -61,7 +61,7 @@ func (Tool) Wire() error {
 
 // GolangciLint installs golangci-lint
 func (Tool) GolangciLint() error {
-	const version = "v1.54.2"
+	const version = "v1.57.2"
 	if exists(filepath.Join(GOBIN, "golangci-lint")) {
 		return nil
 	}
@@ -75,14 +75,6 @@ func (Tool) Labeler() error {
 		return nil
 	}
 	return sh.Run("go", "install", "github.com/knqyf263/labeler@latest")
-}
-
-// EasyJSON installs easyjson
-func (Tool) EasyJSON() error {
-	if exists(filepath.Join(GOBIN, "easyjson")) {
-		return nil
-	}
-	return sh.Run("go", "install", "github.com/mailru/easyjson/...@v0.7.7")
 }
 
 // Kind installs kind cluster
@@ -162,12 +154,6 @@ func Protoc() error {
 func Yacc() error {
 	mg.Deps(Tool{}.Goyacc)
 	return sh.Run("go", "generate", "./pkg/licensing/expression/...")
-}
-
-// Easyjson generates JSON marshaler/unmarshaler for TinyGo/WebAssembly as TinyGo doesn't support encoding/json.
-func Easyjson() error {
-	mg.Deps(Tool{}.EasyJSON)
-	return sh.Run("easyjson", "./pkg/module/serialize/types.go")
 }
 
 type Test mg.Namespace
@@ -434,16 +420,19 @@ func installed(cmd string) bool {
 
 type Schema mg.Namespace
 
+// Generate generates Cloud Schema for misconfiguration scanning
 func (Schema) Generate() error {
 	return sh.RunWith(ENV, "go", "run", "-tags=mage_schema", "./magefiles", "--", "generate")
 }
 
+// Verify verifies Cloud Schema for misconfiguration scanning
 func (Schema) Verify() error {
 	return sh.RunWith(ENV, "go", "run", "-tags=mage_schema", "./magefiles", "--", "verify")
 }
 
 type CloudActions mg.Namespace
 
+// Generate generates the list of possible cloud actions with AWS
 func (CloudActions) Generate() error {
 	return sh.RunWith(ENV, "go", "run", "-tags=mage_cloudactions", "./magefiles")
 }

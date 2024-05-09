@@ -36,7 +36,7 @@ schema as such
     ```
 
 Here `input: schema["dockerfile"]` points to a schema that expects a valid `Dockerfile` as input. An example of this
-can be found [here](https://github.com/aquasecurity/defsec/blob/master/pkg/rego/schemas/dockerfile.json)
+can be found [here](https://github.com/aquasecurity/trivy/blob/main/pkg/iac/rego/schemas/dockerfile.json).
 
 Now if this policy is evaluated against, a more descriptive error will be available to help fix the problem.
 
@@ -50,9 +50,9 @@ Now if this policy is evaluated against, a more descriptive error will be availa
 
 Currently, out of the box the following schemas are supported natively:
 
-1. [Docker](https://github.com/aquasecurity/trivy-iac/blob/main/pkg/rego/schemas/dockerfile.json)
-2. [Kubernetes](https://github.com/aquasecurity/trivy-iac/blob/main/pkg/rego/schemas/kubernetes.json)
-3. [Cloud](https://github.com/aquasecurity/trivy-iac/blob/main/pkg/rego/schemas/cloud.json)
+1. [Docker](https://github.com/aquasecurity/trivy/blob/main/pkg/iac/rego/schemas/dockerfile.json)
+2. [Kubernetes](https://github.com/aquasecurity/trivy/blob/main/pkg/iac/rego/schemas/kubernetes.json)
+3. [Cloud](https://github.com/aquasecurity/trivy/blob/main/pkg/iac/rego/schemas/cloud.json)
 
 
 ## Custom Policies with Custom Schemas
@@ -89,4 +89,4 @@ To use such a policy with Trivy, use the `--config-policy` flag that points to t
 $ trivy --config-policy=/Users/user/my-custom-policies <path/to/iac>
 ```
 
-For more details on how to define schemas within Rego policies, please see the [OPA guide](https://www.openpolicyagent.org/docs/latest/schemas/#schema-annotations) that describes it in more detail.
+For more details on how to define schemas within Rego policies, please see the [OPA guide](https://www.openpolicyagent.org/docs/latest/policy-language/#schema-annotations) that describes it in more detail.
