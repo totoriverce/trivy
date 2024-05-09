@@ -127,7 +127,8 @@ nav:
                 - SBOM Attestation in Rekor: docs/supply-chain/attestation/rekor.md
           - VEX: docs/supply-chain/vex.md
       - Compliance:
-          - Reports:  docs/compliance/compliance.md
+          - Built-in Compliance:  docs/compliance/compliance.md
+          - Custom Compliance: docs/compliance/contrib-compliance.md
       - Advanced:
           - Modules: docs/advanced/modules.md
           - Plugins: docs/advanced/plugins.md
@@ -185,7 +186,6 @@ nav:
           - Issues: community/contribute/issue.md
           - Discussions: community/contribute/discussion.md
           - Pull Requests: community/contribute/pr.md
-          - Compliance Checks: community/contribute/compliance.md
       - Maintainer:
           - Help Wanted: community/maintainer/help-wanted.md
           - Triage: community/maintainer/triage.md
