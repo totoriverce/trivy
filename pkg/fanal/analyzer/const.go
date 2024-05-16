@@ -27,11 +27,12 @@ const (
 	TypeUbuntuESM  Type = "ubuntu-esm"
 
 	// OS Package
-	TypeApk         Type = "apk"
-	TypeDpkg        Type = "dpkg"
-	TypeDpkgLicense Type = "dpkg-license" // For analyzing licenses
-	TypeRpm         Type = "rpm"
-	TypeRpmqa       Type = "rpmqa"
+	TypeApk             Type = "apk"
+	TypeDpkg            Type = "dpkg"
+	TypeDpkgLicense     Type = "dpkg-license"      // For analyzing licenses
+	TypeDpkgSystemFiles Type = "dpkg-system-files" // For analyzing system files
+	TypeRpm             Type = "rpm"
+	TypeRpmqa           Type = "rpmqa"
 
 	// OS Package Repository
 	TypeApkRepo Type = "apk-repo"
@@ -159,6 +160,7 @@ var (
 		TypeApk,
 		TypeDpkg,
 		TypeDpkgLicense,
+		TypeDpkgSystemFiles,
 		TypeRpm,
 		TypeRpmqa,
 		TypeApkRepo,
