@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"regexp"
 
 	"golang.org/x/exp/slices"
 
@@ -41,7 +42,14 @@ func (a osReleaseAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInp
 		case "ID":
 			id = strings.Trim(value, `"'`)
 		case "VERSION_ID":
+			if id == "openEuler" {
+				continue
+			}
 			versionID = strings.Trim(value, `"'`)
+		case "PRETTY_NAME":
+			// Get openEuler Version
+			re := regexp.MustCompile(`openEuler |\(|\)`)
+			versionID = strings.Replace(re.ReplaceAllString(strings.Trim(value, `"'`), ""), " ", "-", -1)
 		default:
 			continue
 		}
@@ -62,6 +70,8 @@ func (a osReleaseAnalyzer) Analyze(_ context.Context, input analyzer.AnalysisInp
 			family = types.Wolfi
 		case "chainguard":
 			family = types.Chainguard
+		case "openEuler":
+			family = types.OpenEuler
 		}
 
 		if family != "" && versionID != "" {
